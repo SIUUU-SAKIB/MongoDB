@@ -3,7 +3,7 @@ const express = require(`express`);
 const app = express();
 const port = process.env.PORT || 1000;
 const cors = require(`cors`);
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_PASSWORD}@cluster0.y1e7y.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 app.use(express.json(), express.urlencoded({ extended: true }));
 app.use(
@@ -23,23 +23,72 @@ async function run() {
     await client.connect();
     await client.db("admin").command({ ping: 1 });
     console.log(
-      "Pinged your deployment. You successfully connected to MongoDB and Nekane"
+      "Pinged your deployment. You successfully connected to MongoDB"
     );
 
-    const carCollection = client.db("Rent-car").collection(`added-car`);
-    app.get(`/car`, async (req, res) => {
-      const data = await carCollection.find().toArray();
-      res.send(data.filter(e => e.model.toLowerCase() === `hyundai elantra`));
+    const dataBase = client.db(`my-database`);
+    const usersCollection = dataBase.collection(`users-collection`);
+
+    app.post(`/add-user`, async (req, res) => {
+      try {
+        const result = await usersCollection.insertMany(req.body);
+        console.log(req.body);
+        res.status(200).json({
+          message: `User created successfully`,
+          result,
+        });
+      } catch (error) {
+        res.status(400).json({ message: `Failed to create user` });
+      }
+    });
+
+    app.get(`/users`, async (req, res) => {
+      try {
+        const data = await usersCollection.find().toArray();
+        res.send(data);
+      } catch (error) {
+        res.status(400).json({
+          message: `failed to get data`,
+          error,
+        });
+      }
+    });
+    // search via ID
+    app.get(`/users/:id`, async (req, res) => {
+      try {
+        const { id } = req.params;
+        const data = await usersCollection.findOne({ _id: new ObjectId(id) });
+
+        res.send(data);
+      } catch (error) {
+        res.status(400).json({ message: `Failed to get the data` }, error);
+      }
+    });
+
+    // serach via Email
+    app.get(`/users/user/:email`, async (req, res) => {
+      try {
+        const data = await usersCollection
+          .find({ email: req.params.email }, { projection: { email: 0 } })
+          .toArray();
+        res.status(200).json({
+          status: `Success`,
+          message: `Successfully Got the data`,
+          data: data,
+        });
+      } catch (error) {
+        res.status(400).json({ message: `Failed to get data` });
+      }
+    });
+    // Default Route
+    app.get(`/`, (req, res) => {
+      res.send("SERVER IS WORKING");
     });
   } finally {
     // await client.close();
   }
 }
 run().catch(console.dir);
-
-app.get(`/`, (req, res) => {
-  res.send(`SERVER IS WORKING`);
-});
 
 app.listen(port, () =>
   console.log(`SERVER IS RUNNING ON http://localhost:${port}`)
