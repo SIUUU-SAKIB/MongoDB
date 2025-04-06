@@ -80,6 +80,46 @@ async function run() {
         res.status(400).json({ message: `Failed to get data` });
       }
     });
+
+    // update items
+    app.put(`/update-user/:id`, async (req, res) => {
+      const { id } = req.params;
+      try {
+        const filter = { _id: new ObjectId(id) };
+        const userInfo = req.body;
+        const updateInfo = {
+          $set: {
+            ...userInfo,
+          },
+        };
+        const option = { upsert: false };
+        const result = await usersCollection.updateOne(
+          filter,
+          updateInfo,
+          option
+        );
+        res.json(result);
+      } catch (error) {
+        res.status(400).json({
+          message: `Failed to update user`,
+          error,
+        });
+      }
+    });
+    // update many
+    app.patch(`/update-all`, async (req, res) => {
+      try {
+        const result = await usersCollection.updateMany({}, { $set: { status: "pending" } });
+        res.status(200).json({
+          result
+        })
+      } catch (error) {
+        res.status(400).json({
+          message: `Failed to update user`,
+          error,
+        });
+      }
+    });
     // Default Route
     app.get(`/`, (req, res) => {
       res.send("SERVER IS WORKING");
