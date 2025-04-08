@@ -26,6 +26,33 @@ async function run() {
       "Pinged your deployment. You successfully connected to MongoDB"
     );
 
+    // TODO APPLICATION
+    const db = client.db(`todo-database`);
+    const todoCollection = db.collection(`todos`);
+
+    app.get(`/todo`, async (req, res) => {
+      try {
+        const data = await todoCollection.find().toArray();
+        res.send(data);
+      } catch (error) {
+        res.status(500).send(`Something went wrong`);
+      }
+    });
+
+    app.post(`/todo-post`, async (req, res) => {
+      console.log(req.body)
+      try {
+        const data = await todoCollection.insertOne(req.body);
+        res.send(data);
+      } catch (error) {
+        res.status(500).json({
+          message: `Failed to post todo`,
+          status: false,
+          error,
+        });
+      }
+    });
+    // END OF TODO APPLICATION
     const dataBase = client.db(`my-database`);
     const usersCollection = dataBase.collection(`users-collection`);
 
@@ -82,23 +109,46 @@ async function run() {
     });
 
     // update items
-    app.put(`/update-user/:id`, async (req, res) => {
+    app.put("/update-user/:id", async (req, res) => {
       const { id } = req.params;
+
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
       try {
         const filter = { _id: new ObjectId(id) };
-        const userInfo = req.body;
-        const updateInfo = {
-          $set: {
-            ...userInfo,
-          },
-        };
-        const option = { upsert: false };
+        const updateInfo = { $set: { ...req.body } };
+        const options = { upsert: false };
+
         const result = await usersCollection.updateOne(
           filter,
           updateInfo,
-          option
+          options
         );
-        res.json(result);
+
+        res.json({
+          message: "User updated successfully",
+          modifiedCount: result.modifiedCount,
+        });
+      } catch (error) {
+        res.status(500).json({
+          message: "Failed to update user",
+          error: error.message,
+        });
+      }
+    });
+
+    // update many
+    app.patch(`/update-all`, async (req, res) => {
+      try {
+        const result = await usersCollection.updateMany(
+          {},
+          { $set: { salary: 5000 } }
+        );
+        res.status(200).json({
+          result,
+        });
       } catch (error) {
         res.status(400).json({
           message: `Failed to update user`,
@@ -106,19 +156,44 @@ async function run() {
         });
       }
     });
-    // update many
-    app.patch(`/update-all`, async (req, res) => {
+    // Delete user
+    app.delete(`/delete-user/:id`, async (req, res) => {
       try {
-        const result = await usersCollection.updateMany({}, { $set: { status: "pending" } });
-        res.status(200).json({
-          result
-        })
+        const result = await usersCollection.deleteOne({
+          _id: new ObjectId(req.params.id),
+        });
+        res.status(200).json({ message: `Deleted Successfully`, result });
       } catch (error) {
-        res.status(400).json({
-          message: `Failed to update user`,
-          error,
+        res.status(500).json({
+          status: false,
+          message: `Failed to delete user ${error}`,
         });
       }
+    });
+    // delete many user
+    app.delete(`/delete-users/status`, async (req, res) => {
+      const { status } = req.body;
+      try {
+        const result = await usersCollection.deleteMany({ status });
+        res.status(200).json({
+          status: true,
+          message: `Successfully deleted user`,
+          result,
+        });
+      } catch (error) {
+        res.status(500).json({
+          status: true,
+          message: `Selected users successfully`,
+        });
+      }
+    });
+    // Condition user search
+    app.get(`/users/older-than/:salary`, async function (req, res) {
+      const { salary } = req.params;
+      const result = await usersCollection
+        .find({ salary: { $gt: Number(salary) } })
+        .toArray();
+      res.send(result);
     });
     // Default Route
     app.get(`/`, (req, res) => {
