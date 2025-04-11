@@ -30,9 +30,11 @@ async function run() {
     const db = client.db(`todo-database`);
     const todoCollection = db.collection(`todos`);
 
-    app.get(`/todo`, async (req, res) => {
+    app.get(`/todo/:email`, async (req, res) => {
+      const { email } = req.params;
+      console.log(email);
       try {
-        const data = await todoCollection.find().toArray();
+        const data = await todoCollection.find({ user: email }).toArray();
         res.send(data);
       } catch (error) {
         res.status(500).send(`Something went wrong`);
@@ -40,7 +42,6 @@ async function run() {
     });
 
     app.post(`/todo-post`, async (req, res) => {
-      console.log(req.body)
       try {
         const data = await todoCollection.insertOne(req.body);
         res.send(data);
@@ -50,6 +51,62 @@ async function run() {
           status: false,
           error,
         });
+      }
+    });
+
+    app.patch(`/done-todo/:id`, async (req, res) => {
+      const { id } = req.params;
+      try {
+        const filter = { _id: new ObjectId(id) };
+        const updateInfo = { $set: { ...req.body } };
+        const options = { upsert: false };
+
+        const result = await todoCollection.updateOne(
+          filter,
+          updateInfo,
+          options
+        );
+        res
+          .status(200)
+          .json({ status: true, message: `Successfully updated the todo` });
+      } catch (error) {
+        res.status(500).send(`Failed to update the todo.`);
+      }
+    });
+
+    app.patch(`/todo-update/:id`, async (req, res) => {
+      const { id } = req.params;
+      try {
+        const filter = { _id: new ObjectId(id) };
+        const updateInfo = { $set: { ...req.body } };
+        const options = { upsert: false };
+
+        const result = await todoCollection.updateOne(
+          filter,
+          updateInfo,
+          options
+        );
+        res.status(200).json({
+          status: true,
+          message: `Successfully updated the todo`,
+          result,
+        });
+      } catch (error) {
+        res.status(500).send(`Failed to update the todo.`);
+      }
+    });
+
+    app.delete(`/todo-delete/:id`, async (req, res) => {
+      try {
+        const result = await todoCollection.deleteOne({
+          _id: new ObjectId(req.params),
+        });
+        res.status(200).json({
+          status: true,
+          result,
+        });
+      } catch (error) {
+        res.status(200).send({ message: `Failed to delete todo` });
       }
     });
     // END OF TODO APPLICATION
